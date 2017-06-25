@@ -1,11 +1,3 @@
-;;; Instituto Politecnico de Portalegre
-;;; Escola Superior de Tecnologia e Gestao
-;;;
-;;; Engenharia Informatica
-;;; Inteligencia Artificial 2016/2017
-;;; Prof. Luis Baptista
-;;; Joao Baptista - 16839
-
 ;; -----------------------------------------------------------
 ;; N-Queens structure and auxiliary functions to manipulate it
 ;; -----------------------------------------------------------
