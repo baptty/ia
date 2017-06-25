@@ -10,6 +10,8 @@
 ;; N-Queens structure and auxiliary functions to manipulate it
 ;; -----------------------------------------------------------
 
+;; XXX: This is a hack in order to have algorithms available in this
+;; file without the need to make a package.
 (load (compile-file "algorithms.lisp"))
 
 (defstruct nqueen
@@ -83,9 +85,14 @@ the new board"
       (nqueen-set board queen2 queen1-value)
       board)))
 
+(defun nqueen-xy-heuristic (board x y)
+  "Check if two queens threat eachother. Returns true if they do"
+  (or (= (- (nqueen-get board x) x) (- (nqueen-get board y) y))
+      (= (+ (nqueen-get board x) x) (+ (nqueen-get board y) y))
+      (= (nqueen-get board x) (nqueen-get board y))))
+
 (defun nqueen-heuristic (board)
   "Calculate the cost of a given board based on number of threatened queens"
-  board
   )
 
 (defun nqueen-sucessor (board)
@@ -95,6 +102,5 @@ the new board"
 
 (defun nqueen-objective (board)
   "Verify if a board is an objective, that is, if no queens are threatened"
-  board
-  )
+  (= (nqueen-heuristic board) 0)
 
