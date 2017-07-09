@@ -1,28 +1,3 @@
-;; ---------------------------------------------------------------------------
-;; Generic AI algorithms.
-;; To use this algorithms with a data structure interfaces with the following
-;; methods must be implemented:
-;; ---------------------------------------------------------------------------
-
-(defstruct problem
-  "Generic problem structure to be accepted by a algorithm.
-This structure has an initial problem state the functions to generate
-sucessors, calculate heuristics and check if a table is the objective."
-  state
-  sucessor
-  heuristic
-  objective)
-
-(defun problem-create (state sucessor-fun heuristic-fun objective-fun)
-  "Create a new problem from a set of problem functions needed to solve
-a problem with the hill-climbing algorithm."
-  (make-problem
-    :state state
-    :sucessor sucessor-fun
-    :heuristic heuristic-fun
-    :objective objective-fun))
-
-
 ;; -----------------------------------------------------------
 ;; N-Queens structure and auxiliary functions to manipulate it
 ;; -----------------------------------------------------------
@@ -51,6 +26,8 @@ and the content of an index is the y coordinate"
     :board (make-array size :initial-element 0)))
 
 (defun nqueen-sequencial-initialize-aux (board index)
+  "Initialize the N Queens board with sequencial diagonal number.
+This is done to reduce the search space"
   (cond ((= index (nqueen-size board)) board)
         (T (progn
              (nqueen-set board index index)
@@ -60,26 +37,20 @@ and the content of an index is the y coordinate"
   "Initialize queens board from 1 to N where N is size of the array"
   (nqueen-sequencial-initialize-aux board 0))
 
+(defun nqueen-swap-two-random (board index1 index2)
+    (rotatef (aref (nqueen-board board) index1)
+             (aref (nqueen-board board) index2))
+    board)
 
-(defun nqueen-swap-two-random (board)
-  "Switch position between two random queens in the given table and return
-the new board"
-  (let* ((queen1 (random (nqueen-size board)))
-        (queen2 (random (nqueen-size board)))
-        (queen1-value (nqueen-get board queen1))
-        (queen2-value (nqueen-get board queen2)))
-
-    (progn
-      (nqueen-set board queen1 queen2-value)
-      (nqueen-set board queen2 queen1-value)
-      board)))
 
 (defun nqueen-n-swaps (board n)
   "Make N swaps to random elements of the N-Queens board array. This is
 used for the creation of the root board."
   (cond ((= n 0) board)
         (T (progn
-             (nqueen-swap-two-random board)
+             (nqueen-swap-two-random  board
+                                      (random (nqueen-size board))
+                                      (random (nqueen-size board)))
              (nqueen-n-swaps board (1- n))))))
 
 (defun nqueen-create (size)
@@ -100,7 +71,7 @@ board-size queens with board-size maximum values"
   (nqueen-replicate-aux board (nqueen-create-empty (nqueen-size board)) 0))
 
 (defun nqueen-xy-heuristic (board x y)
-  "Check if two queens threat eachother. Returns true if they do"
+  "Check if two queens threat each other. Returns true if they do"
   (or (= (- (nqueen-get board x) x) (- (nqueen-get board y) y))
       (= (+ (nqueen-get board x) x) (+ (nqueen-get board y) y))
       (= (nqueen-get board x) (nqueen-get board y))))
@@ -120,15 +91,18 @@ board-size queens with board-size maximum values"
 (defun nqueen-sucessors-list (board)
   "Generate and return a list of new sucessors from a current board"
   (let (list)
-    (loop for i from 0 to 200 by 1 do
-      (setf list (cons (nqueen-swap-two-random (nqueen-replicate board)) list)))
-      list))
+    (loop for i from 0 to (* 3 (nqueen-size board)) by 1 do
+          (setf list (cons (nqueen-swap-two-random (nqueen-replicate board)
+                                                   (random (nqueen-size board))
+                                                   (random (nqueen-size board))) list)))
+    list))
 
 (defun nqueen-sucessor (board)
   "Generate the list of sucessors and choose the first with best heuristic found"
-  (dolist (elem (nqueen-sucessors-list board))
-    (if (<= (nqueen-heuristic elem) (nqueen-heuristic board))
-      (return-from nqueen-sucessor elem)))
+  (let ((current-heuristic-value (nqueen-heuristic board)))
+    (dolist (elem (nqueen-sucessors-list board))
+      (if (<= (nqueen-heuristic elem) current-heuristic-value)
+        (return-from nqueen-sucessor elem))))
   nil)
 
 (defun nqueen-objective (board)
@@ -137,34 +111,67 @@ board-size queens with board-size maximum values"
 
 
 (defun objective (board)
+  "Generic successor function that must be implemented to run the algorithm."
   (nqueen-objective board))
 
 (defun sucessor (board)
+  "Generic objective function that must be implemented to run the algorithm."
   (nqueen-sucessor board))
 
+(defun create (board)
+  (nqueen-create board))
+
 (defun hill-climbing (size flatland-repetitions)
-  (let* ((current-state)
-         (sucessor-state))
+  "Hill climbing algorithm with restarts implementation"
+  (let ((current-state)
+        (sucessor-state)
+        (restarts 0)
+        (iterations 0)
+        (start-time (get-universal-time))
+        (end-time)) 
 
     (loop while t do
-          (setf current-state (nqueen-create size))
-      
+          (setf current-state (create size))
+          (incf restarts)
+
           (loop for i from 0 to flatland-repetitions do
                 (setf sucessor-state (sucessor current-state))
+                (incf iterations)
+
                 (if sucessor-state
                   (setf current-state sucessor-state)
                   (return))
+
                 (if (objective current-state)
                   (return)))
 
           (if (objective current-state)
             (return)))
-    current-state))
+
+    (setf end-time (get-universal-time))
+    (list current-state size restarts iterations (- end-time start-time))))
+
+(defun nqueen-log (board)
+  "Log size, restarts, iterations and times of result of a board"
+  (with-open-file (str "results-logs/nqueens.csv"
+                         :direction :output
+                         :if-exists :append
+                         :if-does-not-exist :create)
+      (format str "~D,~D,~D,~D~%"
+              (second board)
+              (third board)
+              (fourth board)
+              (fifth board))))
 
 (defun nqueen-solve (size)
-  (hill-climbing size (* size 5)))
+  "Solve a N-Queen problem for a given size."
+  (nqueen-log (hill-climbing size (* size 10))))
 
 
-(defun main ()
-  (time (nqueen-solve 200)))
+(defun nqueen-tests (test-values)
+  "Make a set of tests for sizes given by test-values list passed as
+parameter"
+  (dolist (elem test-values)
+    (loop for i from 0 to 9 do
+          (nqueen-solve elem))))
 
